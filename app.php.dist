@@ -1,0 +1,20 @@
+<?php
+
+require_once(__DIR__.'/vendor/autoload.php');
+
+$username = 'n@n.com';
+$password = 'god';
+$appId = '3713774';
+
+$service = new \Vk\AppAuth\AuthService(new \Vk\AppAuth\AuthPageParser(), new \Vk\AppAuth\GrantPageParser());
+
+$tokenInfo = $service->createToken($username, $password, $appId);
+
+var_export($tokenInfo);
+
+var_export($service->getLogMessages());
+
+
+
+
+

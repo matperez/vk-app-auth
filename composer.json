@@ -1,0 +1,36 @@
+{
+  "name": "matperez/vk-app-auth",
+  "description": "It just creates vk.com application tokens",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "private": true,
+  "authors": [
+    {
+      "name": "Golovin Andrey",
+      "email": "matperez@mail.ru"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Vk\\AppAuth\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Vk\\AppAuth\\tests\\": "tests/"
+    }
+  },
+  "require": {
+    "php": ">=5.4.0",
+    "shark/simple_html_dom": "dev-master",
+    "guzzlehttp/guzzle": "^5.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "~4.8",
+    "mockery/mockery": "~0.9",
+    "fzaninotto/faker": "dev-master"
+  },
+  "scripts": {
+    "test": "./vendor/bin/phpunit"
+  }
+}
