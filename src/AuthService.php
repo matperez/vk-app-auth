@@ -9,29 +9,32 @@
 
 namespace Vk\AppAuth;
 
-use Vk\AppAuth\Interfaces\AuthPageParserInterface;
+use Vk\AppAuth\Interfaces\AuthenticatorInterface;
 use Vk\AppAuth\Interfaces\GrantPageParserInterface;
 
 class AuthService extends BaseAuthService
 {
-    /**
-     * @var AuthPageParserInterface
-     */
-    protected $formPageParser;
-
     /**
      * @var GrantPageParserInterface
      */
     protected $grantPageParser;
 
     /**
-     * @param AuthPageParserInterface $formPageParser
-     * @param GrantPageParserInterface $grantPageParser
+     * @var AuthenticatorInterface
      */
-    public function __construct(AuthPageParserInterface $formPageParser, GrantPageParserInterface $grantPageParser)
+    protected $authenticator;
+
+    /**
+     * @param GrantPageParserInterface $grantPageParser
+     * @param AuthenticatorInterface $authenticator
+     */
+    public function __construct(
+        GrantPageParserInterface $grantPageParser,
+        AuthenticatorInterface $authenticator
+    )
     {
-        $this->formPageParser = $formPageParser;
         $this->grantPageParser = $grantPageParser;
+        $this->authenticator = $authenticator;
     }
 
     /**
@@ -58,9 +61,9 @@ class AuthService extends BaseAuthService
                     $this->handleGrantState();
                     break;
             }
-        } while ($this->getState() !== self::STATE_TOKEN_PAGE && $this->getState() !== self::STATE_FAULT);
+        } while ($this->getState() !== self::STATE_SUCCESS && $this->getState() !== self::STATE_FAULT);
 
-        if ($this->getState() === self::STATE_TOKEN_PAGE) {
+        if ($this->getState() === self::STATE_SUCCESS) {
             $redirect = $this->getLastResponse()->getEffectiveUrl();
             $this->addLogMessage(sprintf('Got token redirect %s!', $redirect));
             return TokenInfo::createFromRedirect($redirect);
@@ -84,16 +87,14 @@ class AuthService extends BaseAuthService
     public function handleAuthState($email, $password, $appId, $scope)
     {
         $this->addLogMessage('Auth required!');
-        $authPage = $this->getAuthPage($appId, $scope);
-        $content = $authPage->getBody();
-        $auth = $this->authenticate($email, $password, $content);
+
+        $this->authenticator->setClient($this->getClient());
+        $auth = $this->authenticator->authenticate($email, $password, $appId, $scope);
         $this->setLastResponse($auth);
         $redirectUrl = $auth->getEffectiveUrl();
         if (preg_match('/access_token=[\d\w]+/', $redirectUrl)) {
-            // https://oauth.vk.com/blank.html#access_token=e01fb069ba1e0f0e1ec23...9ae3bdf0a3&expires_in=0&user_id=55...64
-            $this->setState(self::STATE_TOKEN_PAGE);
+            $this->setState(self::STATE_SUCCESS);
         } elseif (preg_match('/__q_hash=[\d\w]+/', $redirectUrl)) {
-            // https://oauth.vk.com/authorize?client_id=3713774&redirect_uri=https%3A%2F%2Foauth.vk.com%2Fblank.html&response_type=token&scope=73736&v=&state=&display=wap&__q_hash=d08ddd42...2df41e7f477699c
             $this->setState(self::STATE_GRANT);
         } else {
             $this->setState(self::STATE_FAULT);
@@ -109,62 +110,34 @@ class AuthService extends BaseAuthService
         $this->setState(self::STATE_FAULT);
     }
 
+    /**
+     * Phone number required handle
+     * Not implemented yet
+     */
     public function handlePhoneNumberRequiredState()
     {
         $this->addLogMessage('Phone number required!');
+        $this->setState(self::STATE_FAULT);
     }
 
     /**
-     * Состояние получения разрешения от пользователя.
-     * Если получилось получить ссылку на разрешение, запросить ее, получить
-     * редирект на токен и перейти в состояние STATE_TOKEN_PAGE.
+     * Состояние получения разрешения для приложения.
+     * Если удалось получить ссылку на разрешение, запросить ее, получить
+     * редирект на токен и перейти в состояние STATE_SUCCESS.
      * Если не удалось получить ссылку на разрешение, перейти в состояние STATE_FAULT
      */
     public function handleGrantState()
     {
         $this->addLogMessage('Access grant required!');
-        $grantPageUrl = $this->getLastResponse()->getEffectiveUrl();
-        $grantPage = $this->getClient()->get($grantPageUrl);
+        $grantPage = $this->getClient()->get($this->getLastResponse()->getEffectiveUrl());
         $grantUrl = $this->grantPageParser->getGrantUrl($grantPage->getBody());
         $grant = $this->getClient()->get($grantUrl);
         $this->setLastResponse($grant);
         if (preg_match('/access_token=[\d\w]+/', $grant->getEffectiveUrl())) {
-            // https://oauth.vk.com/blank.html#access_token=e01fb069ba1e0f0e1ec23528...ae3bdf0a3&expires_in=0&user_id=5....64
-            $this->setState(self::STATE_TOKEN_PAGE);
+            $this->setState(self::STATE_SUCCESS);
         } else {
             $this->addLogMessage('Unable to fetch token redirect!');
             $this->setState(self::STATE_FAULT);
         }
-    }
-
-    /**
-     * @param int $appId
-     * @param string $scope
-     * @return \GuzzleHttp\Message\ResponseInterface
-     */
-    protected function getAuthPage($appId, $scope)
-    {
-        $authPageUrl = sprintf('https://oauth.vk.com/oauth/authorize?redirect_uri=https://oauth.vk.com/blank.html&response_type=token&client_id=%s&scope=%s&display=wap', $appId, $scope);
-        $authPageRequest = $this->getClient()->get($authPageUrl);
-        return $authPageRequest;
-    }
-
-    /**
-     * @param string $email
-     * @param string $password
-     * @param string $authPageContent
-     * @return \GuzzleHttp\Message\ResponseInterface
-     */
-    protected function authenticate($email, $password, $authPageContent)
-    {
-        $authUrl = $this->formPageParser->getAuthUrl($authPageContent);
-        $authParams = array_merge($this->formPageParser->getAuthParams($authPageContent), [
-            'email' => $email,
-            'pass' => $password,
-        ]);
-        $authRequest = $this->getClient()->post($authUrl, [
-            'body' => $authParams
-        ]);
-        return $authRequest;
     }
 }

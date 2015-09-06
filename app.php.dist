@@ -6,15 +6,11 @@ $username = 'n@n.com';
 $password = 'god';
 $appId = '3713774';
 
-$service = new \Vk\AppAuth\AuthService(new \Vk\AppAuth\AuthPageParser(), new \Vk\AppAuth\GrantPageParser());
+$authenticator = new \Vk\AppAuth\Authenticator(new \Vk\AppAuth\AuthPageParser());
+$service = new \Vk\AppAuth\AuthService(new \Vk\AppAuth\GrantPageParser(), $authenticator);
 
 $tokenInfo = $service->createToken($username, $password, $appId);
 
 var_export($tokenInfo);
 
 var_export($service->getLogMessages());
-
-
-
-
-

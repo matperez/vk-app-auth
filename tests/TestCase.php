@@ -11,7 +11,7 @@ namespace Vk\AppAuth\tests;
 
 use Faker\Factory;
 use Faker\Generator;
-use Guzzle\Http\Client;
+use GuzzleHttp\Client;
 
 class TestCase extends \PHPUnit_Framework_TestCase
 {
@@ -44,7 +44,7 @@ class TestCase extends \PHPUnit_Framework_TestCase
     protected function setUp()
     {
         parent::setUp();
-        $this->client = \Mockery::mock('Guzzle\Http\Client');
+        $this->client = \Mockery::mock('GuzzleHttp\Client');
         $this->faker = Factory::create();
     }
 

@@ -19,7 +19,7 @@ abstract class BaseAuthService
     const STATE_INVALID_ACCOUNT = 2;
     const STATE_PHONE_NUMBER_REQUIRED = 4;
     const STATE_GRANT = 5;
-    const STATE_TOKEN_PAGE = 6;
+    const STATE_SUCCESS = 6;
     const STATE_FAULT = 7;
     /**
      * @var int

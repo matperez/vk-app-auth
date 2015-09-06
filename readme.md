@@ -6,47 +6,53 @@ Vk.com application authenticator
 Установка
 ---------
 
-Установка выполняется через composer. 
+Установка выполняется через [Composer](http://getcomposer.org). 
+
+```bash
+
+    composer.phar require matperez/vk-app-auth
+    
+```
 
 Использование
 -------------
 
-Работать будет как-то так:
+Пример использования:
 
 ```php
 
-    $service = new \Vk\AppAuth\AuthService(new \Vk\AppAuth\AuthPageParser(), new \Vk\AppAuth\GrantPageParser());
+    require_once(__DIR__.'/vendor/autoload.php');
     
-    $token = $service->createToken($username, $password, $appId);
+    $username = 'n@n.com';
+    $password = 'god';
+    $appId = '3713774';
     
-    echo $token->access_token.PHP_EOL;
+    $authenticator = new \Vk\AppAuth\Authenticator(new \Vk\AppAuth\AuthPageParser());
+    $service = new \Vk\AppAuth\AuthService(new \Vk\AppAuth\GrantPageParser(), $authenticator);
+    
+    $tokenInfo = $service->createToken($username, $password, $appId);
+    
+    var_export($tokenInfo);
+    
+    var_export($service->getLogMessages());
     
     
 ```
+
+В настоящее время код не умеет обрабатывать требование ввести номер телефона для подтверждения входа из незнакомого места.
 
 TODO
 ----
 
 - Добавить обработку требования номера телефона
-- Причесать код
-
 
 Тестирование
 ------------
 
 Тесты можно запускать через composer:
 
-```
+```bash
 
     composer test
-
-```
-
-Либо руками:
-
-```
-
-    ./vendor/bin/phpunit
-    
 
 ```
