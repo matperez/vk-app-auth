@@ -9,53 +9,20 @@
 
 namespace Vk\AppAuth;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Message\ResponseInterface;
 use Vk\AppAuth\Interfaces\AuthPageParserInterface;
 use Vk\AppAuth\Interfaces\GrantPageParserInterface;
 
-class AuthService
+class AuthService extends BaseAuthService
 {
-    const CONNECT_TIMEOUT = 5;
-
-    const STATE_AUTH = 1;
-    const STATE_INVALID_ACCOUNT = 2;
-    const STATE_CAPTCHA_REQUIRED = 3;
-    const STATE_PHONE_NUMBER_REQUIRED = 4;
-    const STATE_GRANT = 5;
-    const STATE_TOKEN_PAGE = 6;
-    const STATE_FAULT = 7;
-
-    /**
-     * @var int
-     */
-    protected $state = self::STATE_AUTH;
-
-    /**
-     * @var Client
-     */
-    protected $client;
-
-    /**
-     * @var array
-     * @see \Vk\AppAuth\AuthService::createClient
-     */
-    protected $clientDefaults = [];
-
     /**
      * @var AuthPageParserInterface
      */
     protected $formPageParser;
 
     /**
-     * @var ResponseInterface
+     * @var GrantPageParserInterface
      */
-    protected $lastResponse;
-
-    /**
-     * @var array
-     */
-    protected $logMessages = [];
+    protected $grantPageParser;
 
     /**
      * @param AuthPageParserInterface $formPageParser
@@ -68,10 +35,46 @@ class AuthService
     }
 
     /**
+     * @param string $email
+     * @param string $password
+     * @param string $appId
+     * @param string $scope
+     * @return TokenInfo
+     */
+    public function createToken($email, $password, $appId, $scope = 'audio,offline,wall')
+    {
+        do {
+            switch ($this->getState()) {
+                case self::STATE_AUTH:
+                    $this->handleAuthState($email, $password, $appId, $scope);
+                    break;
+                case self::STATE_INVALID_ACCOUNT:
+                    $this->handleInvalidAccountState();
+                    break;
+                case self::STATE_PHONE_NUMBER_REQUIRED:
+                    $this->handlePhoneNumberRequiredState();
+                    break;
+                case self::STATE_GRANT:
+                    $this->handleGrantState();
+                    break;
+            }
+        } while ($this->getState() !== self::STATE_TOKEN_PAGE && $this->getState() !== self::STATE_FAULT);
+
+        if ($this->getState() === self::STATE_TOKEN_PAGE) {
+            $redirect = $this->getLastResponse()->getEffectiveUrl();
+            $this->addLogMessage(sprintf('Got token redirect %s!', $redirect));
+            return TokenInfo::createFromRedirect($redirect);
+        }
+
+        $this->addLogMessage('Unable to create new token!');
+        return null;
+    }
+
+    /**
      * Запросить страницу авторизации. Авторизоваться.
      * Если получили редирект на страницу с разрешениями, перейти в состояние STATE_GRANT_PAGE
      * Если снова получили редирект на страницу авторизации, проверить что не так и перейти в
-     * одно из состояний: STATE_INVALID_ACCOUNT, STATE_CAPTCHA_REQUIRED, STATE_PHONE_NUMBER_REQUIRED.
+     * одно из состояний: STATE_INVALID_ACCOUNT, STATE_PHONE_NUMBER_REQUIRED.
      * Если не знаем, что не так, переходим сразу в состояние STATE_FAULT.
      * @param string $email
      * @param string $password
@@ -80,7 +83,7 @@ class AuthService
      */
     public function handleAuthState($email, $password, $appId, $scope)
     {
-        $this->addLogMessage('Cостояние аутентификации:');
+        $this->addLogMessage('Auth required!');
         $authPage = $this->getAuthPage($appId, $scope);
         $content = $authPage->getBody();
         $auth = $this->authenticate($email, $password, $content);
@@ -102,8 +105,13 @@ class AuthService
      */
     public function handleInvalidAccountState()
     {
-        $this->addLogMessage('Состояние нерабочего аккаунта:');
+        $this->addLogMessage('Invalid username or password!');
         $this->setState(self::STATE_FAULT);
+    }
+
+    public function handlePhoneNumberRequiredState()
+    {
+        $this->addLogMessage('Phone number required!');
     }
 
     /**
@@ -114,7 +122,7 @@ class AuthService
      */
     public function handleGrantState()
     {
-        $this->addLogMessage('Состояние получения разрешения:');
+        $this->addLogMessage('Access grant required!');
         $grantPageUrl = $this->getLastResponse()->getEffectiveUrl();
         $grantPage = $this->getClient()->get($grantPageUrl);
         $grantUrl = $this->grantPageParser->getGrantUrl($grantPage->getBody());
@@ -124,83 +132,9 @@ class AuthService
             // https://oauth.vk.com/blank.html#access_token=e01fb069ba1e0f0e1ec23528...ae3bdf0a3&expires_in=0&user_id=5....64
             $this->setState(self::STATE_TOKEN_PAGE);
         } else {
-            $this->addLogMessage('Не удалось получить редиректа на токен при подтверждении разрешений.');
+            $this->addLogMessage('Unable to fetch token redirect!');
             $this->setState(self::STATE_FAULT);
         }
-    }
-
-    /**
-     * @param string $email
-     * @param string $password
-     * @param string $appId
-     * @param string $scope
-     * @return TokenInfo
-     */
-    public function createToken($email, $password, $appId, $scope = 'audio,offline,wall')
-    {
-        do {
-            switch ($this->getState()) {
-                case self::STATE_AUTH:
-                    $this->handleAuthState($email, $password, $appId, $scope);
-                    break;
-                case self::STATE_INVALID_ACCOUNT:
-                    $this->handleInvalidAccountState();
-                    break;
-                case self::STATE_CAPTCHA_REQUIRED:
-                    break;
-                case self::STATE_PHONE_NUMBER_REQUIRED:
-                    break;
-                case self::STATE_GRANT:
-                    $this->handleGrantState();
-                    break;
-            }
-        } while ($this->getState() !== self::STATE_TOKEN_PAGE && $this->getState() !== self::STATE_FAULT);
-
-        if ($this->getState() === self::STATE_TOKEN_PAGE) {
-            $redirect = $this->getLastResponse()->getEffectiveUrl();
-            $this->addLogMessage(sprintf('Получен редирект на токен %s', $redirect));
-            return TokenInfo::createFromRedirect($redirect);
-        }
-
-        $this->addLogMessage('Токен получить не удалось.');
-        return null;
-    }
-
-    /**
-     * @return Client
-     */
-    public function getClient()
-    {
-        if (!$this->client) {
-            $this->client = $this->createClient();
-        }
-        return $this->client;
-    }
-
-    /**
-     * @param Client $client
-     */
-    public function setClient($client)
-    {
-        $this->client = $client;
-    }
-
-    /**
-     * @return Client
-     */
-    protected function createClient()
-    {
-        $defaults = array_merge_recursive([
-            'connect_timeout' => self::CONNECT_TIMEOUT,
-            'timeout' => self::CONNECT_TIMEOUT,
-            'cookies' => true,
-            'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36',
-            ],
-        ], $this->clientDefaults);
-        return new Client([
-            'defaults' => $defaults
-        ]);
     }
 
     /**
@@ -232,55 +166,5 @@ class AuthService
             'body' => $authParams
         ]);
         return $authRequest;
-    }
-
-    /**
-     * Get FSM state
-     * @return int
-     */
-    public function getState()
-    {
-        return $this->state;
-    }
-
-    /**
-     * Set FSM state
-     * @param int $state
-     */
-    public function setState($state)
-    {
-        $this->state = $state;
-    }
-
-    /**
-     * @return ResponseInterface
-     */
-    public function getLastResponse()
-    {
-        return $this->lastResponse;
-    }
-
-    /**
-     * @param ResponseInterface $lastResponse
-     */
-    public function setLastResponse($lastResponse)
-    {
-        $this->lastResponse = $lastResponse;
-    }
-
-    /**
-     * @return array
-     */
-    public function getLogMessages()
-    {
-        return $this->logMessages;
-    }
-
-    /**
-     * @param string $message
-     */
-    public function addLogMessage($message)
-    {
-        $this->logMessages[] = $message;
     }
 }
