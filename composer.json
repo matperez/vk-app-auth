@@ -1,9 +1,8 @@
 {
   "name": "matperez/vk-app-auth",
-  "description": "It just creates vk.com application tokens",
+  "description": "vk.com standalone application access token creator",
   "minimum-stability": "stable",
   "license": "proprietary",
-  "private": true,
   "authors": [
     {
       "name": "Golovin Andrey",
