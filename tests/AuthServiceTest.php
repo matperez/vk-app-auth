@@ -20,18 +20,20 @@ class AuthServiceTest extends TestCase
     {
         /** @var AuthService|\Mockery\Mock $service */
         $service = \Mockery::mock('Vk\AppAuth\AuthService[handleAuthState,getLastResponse,getLastResponse]', [$this->grantPageParser, $this->authenticator]);
+        $service->setLogger($this->logger);
 
         $service->setState(AuthService::STATE_FAULT);
 
         $this->assertNull($service->createToken('email', 'password', 1234, 'scope'));
 
-        $this->assertContains('Unable to create new token!', $service->getLogMessages());
+        $this->assertContains('Unable to create new token!', $this->logger->getMessages());
     }
 
     public function test_it_can_create_tokens()
     {
         /** @var AuthService|\Mockery\Mock $service */
         $service = \Mockery::mock('Vk\AppAuth\AuthService[handleAuthState,getLastResponse,getLastResponse]', [$this->grantPageParser, $this->authenticator]);
+        $service->setLogger($this->logger);
         $service->shouldReceive('handleAuthState');
 
         $service->setState(AuthService::STATE_SUCCESS);
@@ -48,7 +50,7 @@ class AuthServiceTest extends TestCase
         $this->assertEquals('0', $token->getExpiresIn());
         $this->assertEquals('5564', $token->getUserId());
 
-        $this->assertContains('Got token redirect https://oauth.vk.com/blank.html#access_token=e01fb069ba1e0f0e1ec23e3bdf0a3&expires_in=0&user_id=5564!', $service->getLogMessages());
+        $this->assertContains('Got token redirect https://oauth.vk.com/blank.html#access_token=e01fb069ba1e0f0e1ec23e3bdf0a3&expires_in=0&user_id=5564!', $this->logger->getMessages());
     }
 
     public function test_it_can_handle_auth_errors()
@@ -63,7 +65,7 @@ class AuthServiceTest extends TestCase
         $this->service->handleAuthState('email', 'password', 1234, 'scope');
 
         // assertions
-        $this->assertContains('Auth required!', $this->service->getLogMessages());
+        $this->assertContains('Auth required!', $this->logger->getMessages());
         $this->assertEquals(AuthService::STATE_FAULT, $this->service->getState());
     }
 
@@ -79,7 +81,7 @@ class AuthServiceTest extends TestCase
         $this->service->handleAuthState('email', 'password', 1234, 'scope');
 
         // assertions
-        $this->assertContains('Auth required!', $this->service->getLogMessages());
+        $this->assertContains('Auth required!', $this->logger->getMessages());
         $this->assertEquals(AuthService::STATE_GRANT, $this->service->getState());
     }
 
@@ -95,7 +97,7 @@ class AuthServiceTest extends TestCase
         $this->service->handleAuthState('email', 'password', 1234, 'scope');
 
         // assertions
-        $this->assertContains('Auth required!', $this->service->getLogMessages());
+        $this->assertContains('Auth required!', $this->logger->getMessages());
         $this->assertEquals(AuthService::STATE_SUCCESS, $this->service->getState());
     }
 
@@ -120,7 +122,7 @@ class AuthServiceTest extends TestCase
         $this->service->handleGrantState();
 
         $this->assertEquals(AuthService::STATE_SUCCESS, $this->service->getState());
-        $this->assertContains('Access grant required!', $this->service->getLogMessages());
+        $this->assertContains('Access grant required!', $this->logger->getMessages());
         $this->assertEquals($tokenPageResponse, $this->service->getLastResponse());
     }
 
@@ -129,7 +131,7 @@ class AuthServiceTest extends TestCase
         $this->service->setState(AuthService::STATE_PHONE_NUMBER_REQUIRED);
         $this->service->handlePhoneNumberRequiredState();
         $this->assertEquals(AuthService::STATE_FAULT, $this->service->getState());
-        $this->assertContains('Phone number required!', $this->service->getLogMessages());
+        $this->assertContains('Phone number required!', $this->logger->getMessages());
     }
 
     public function test_it_can_handle_invalid_account_state()
@@ -137,7 +139,7 @@ class AuthServiceTest extends TestCase
         $this->service->setState(AuthService::STATE_INVALID_ACCOUNT);
         $this->service->handleInvalidAccountState();
         $this->assertEquals(AuthService::STATE_FAULT, $this->service->getState());
-        $this->assertContains('Invalid username or password!', $this->service->getLogMessages());
+        $this->assertContains('Invalid username or password!', $this->logger->getMessages());
     }
 
     public function test_it_can_be_created()
@@ -161,6 +163,11 @@ class AuthServiceTest extends TestCase
     protected $authenticator;
 
     /**
+     * @var ArrayLogger
+     */
+    protected $logger;
+
+    /**
      * @inheritdoc
      */
     protected function setUp()
@@ -170,5 +177,7 @@ class AuthServiceTest extends TestCase
         $this->authenticator = \Mockery::mock('Vk\AppAuth\Authenticator');
         $this->service = new AuthService($this->grantPageParser, $this->authenticator);
         $this->service->setClient($this->client);
+        $this->logger = new ArrayLogger();
+        $this->service->setLogger($this->logger);
     }
 }

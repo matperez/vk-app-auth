@@ -11,9 +11,13 @@ namespace Vk\AppAuth;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Message\ResponseInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 
 abstract class BaseAuthService
 {
+    use LoggerAwareTrait;
+
     const CONNECT_TIMEOUT = 5;
     const STATE_AUTH = 1;
     const STATE_INVALID_ACCOUNT = 2;
@@ -21,27 +25,27 @@ abstract class BaseAuthService
     const STATE_GRANT = 5;
     const STATE_SUCCESS = 6;
     const STATE_FAULT = 7;
+
     /**
      * @var int
      */
     protected $state = self::STATE_AUTH;
+
     /**
      * @var Client
      */
     protected $client;
+
     /**
      * @var array
      * @see \Vk\AppAuth\AuthService::createClient
      */
     protected $clientDefaults = [];
+
     /**
      * @var ResponseInterface
      */
     protected $lastResponse;
-    /**
-     * @var array
-     */
-    protected $logMessages = [];
 
     /**
      * @param string $email
@@ -90,6 +94,17 @@ abstract class BaseAuthService
     }
 
     /**
+     * @return LoggerInterface
+     */
+    protected function getLogger()
+    {
+        if (!$this->logger) {
+            $this->logger = new DummyLogger();
+        }
+        return $this->logger;
+    }
+
+    /**
      * Get FSM state
      * @return int
      */
@@ -121,21 +136,5 @@ abstract class BaseAuthService
     public function setLastResponse($lastResponse)
     {
         $this->lastResponse = $lastResponse;
-    }
-
-    /**
-     * @return array
-     */
-    public function getLogMessages()
-    {
-        return $this->logMessages;
-    }
-
-    /**
-     * @param string $message
-     */
-    public function addLogMessage($message)
-    {
-        $this->logMessages[] = $message;
     }
 }

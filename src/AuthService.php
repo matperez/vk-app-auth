@@ -65,11 +65,11 @@ class AuthService extends BaseAuthService
 
         if ($this->getState() === self::STATE_SUCCESS) {
             $redirect = $this->getLastResponse()->getEffectiveUrl();
-            $this->addLogMessage(sprintf('Got token redirect %s!', $redirect));
+            $this->getLogger()->debug(sprintf('Got token redirect %s!', $redirect));
             return TokenInfo::createFromRedirect($redirect);
         }
 
-        $this->addLogMessage('Unable to create new token!');
+        $this->getLogger()->debug('Unable to create new token!');
         return null;
     }
 
@@ -86,7 +86,7 @@ class AuthService extends BaseAuthService
      */
     public function handleAuthState($email, $password, $appId, $scope)
     {
-        $this->addLogMessage('Auth required!');
+        $this->getLogger()->debug('Auth required!');
 
         $this->authenticator->setClient($this->getClient());
         $auth = $this->authenticator->authenticate($email, $password, $appId, $scope);
@@ -106,7 +106,7 @@ class AuthService extends BaseAuthService
      */
     public function handleInvalidAccountState()
     {
-        $this->addLogMessage('Invalid username or password!');
+        $this->getLogger()->debug('Invalid username or password!');
         $this->setState(self::STATE_FAULT);
     }
 
@@ -116,7 +116,7 @@ class AuthService extends BaseAuthService
      */
     public function handlePhoneNumberRequiredState()
     {
-        $this->addLogMessage('Phone number required!');
+        $this->getLogger()->debug('Phone number required!');
         $this->setState(self::STATE_FAULT);
     }
 
@@ -128,7 +128,7 @@ class AuthService extends BaseAuthService
      */
     public function handleGrantState()
     {
-        $this->addLogMessage('Access grant required!');
+        $this->getLogger()->debug('Access grant required!');
         $grantPage = $this->getClient()->get($this->getLastResponse()->getEffectiveUrl());
         $grantUrl = $this->grantPageParser->getGrantUrl($grantPage->getBody());
         $grant = $this->getClient()->get($grantUrl);
@@ -136,7 +136,7 @@ class AuthService extends BaseAuthService
         if (preg_match('/access_token=[\d\w]+/', $grant->getEffectiveUrl())) {
             $this->setState(self::STATE_SUCCESS);
         } else {
-            $this->addLogMessage('Unable to fetch token redirect!');
+            $this->getLogger()->debug('Unable to fetch token redirect!');
             $this->setState(self::STATE_FAULT);
         }
     }

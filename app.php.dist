@@ -12,5 +12,3 @@ $service = new \Vk\AppAuth\AuthService(new \Vk\AppAuth\GrantPageParser(), $authe
 $tokenInfo = $service->createToken($username, $password, $appId);
 
 var_export($tokenInfo);
-
-var_export($service->getLogMessages());

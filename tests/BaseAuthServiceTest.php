@@ -17,16 +17,6 @@ use Vk\AppAuth\GrantPageParser;
 
 class BaseAuthServiceTest extends TestCase
 {
-    public function test_it_can_add_messages_and_return_message_log()
-    {
-        $this->assertEquals([], $this->service->getLogMessages());
-        $messages = $this->faker->words();
-        foreach ($messages as $message) {
-            $this->service->addLogMessage($message);
-        }
-        $this->assertEquals($messages, $this->service->getLogMessages());
-    }
-
     public function test_it_can_get_and_set_last_response()
     {
         $this->assertNull($this->service->getLastResponse());

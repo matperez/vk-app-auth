@@ -34,12 +34,14 @@ Vk.com application authenticator
     
     var_export($tokenInfo);
     
-    var_export($service->getLogMessages());
-    
-    
 ```
 
 В настоящее время код не умеет обрабатывать требование ввести номер телефона для подтверждения входа из незнакомого места.
+
+Логирование
+-----------
+
+Поддерживаеся любой логгер, соответствующий стандарту [PSR-3 psr/log](https://packagist.org/packages/psr/log). 
 
 TODO
 ----
